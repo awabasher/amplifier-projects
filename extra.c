@@ -22,20 +22,16 @@ Semaphore_Handle uart_sem = NULL;
 
 void UART_printf(UART_Handle uart, const char *fmt, ...)
 {
-    BIOS_ThreadType tt = BIOS_getThreadType();
-    if (tt != BIOS_ThreadType_Main)
+    //Create UART semaphore if it doesn't already exist.
+    if (uart_sem == NULL)
     {
-        //Create UART semaphore if it doesn't already exist.
-        if (uart_sem == NULL)
-        {
-            Semaphore_Params sp;
-            Semaphore_Params_init(&sp);
-            sp.mode = Semaphore_Mode_BINARY;
-            uart_sem = Semaphore_create(1, &sp, NULL);
-        }
-        //Grab UART semaphore.
-        Semaphore_pend(uart_sem, BIOS_WAIT_FOREVER);
+        Semaphore_Params sp;
+        Semaphore_Params_init(&sp);
+        sp.mode = Semaphore_Mode_BINARY;
+        uart_sem = Semaphore_create(1, &sp, NULL);
     }
+    //Grab UART semaphore.
+    Semaphore_pend(uart_sem, BIOS_WAIT_FOREVER);
     //Create buffer for UART_write to act on.
     char *msgbuf;
     int n = 100 + strlen(fmt);
@@ -59,10 +55,7 @@ void UART_printf(UART_Handle uart, const char *fmt, ...)
     free(msgbuf);
     va_end(va);
     //Drop Semaphore
-    if (tt != BIOS_ThreadType_Main)
-    {
-        Semaphore_post(uart_sem);
-    }
+    Semaphore_post(uart_sem);
 }
 
 void UART_readFlush(UART_Handle uart)

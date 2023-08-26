@@ -39,13 +39,12 @@
 
 #include <stdint.h>
 
+/* RTOS header files */
+#include <ti/sysbios/BIOS.h>
+#include <ti/sysbios/knl/Task.h>
+
 /* Example/Board Header files */
 #include "Board.h"
-#include <ti/drivers/GPIO.h>
-#include <ti/drivers/UART.h>
-#include <xdc/runtime/Timestamp.h>
-
-#include <time.h>
 
 /* Stack size in bytes */
 #define THREADSTACKSIZE    2048
@@ -53,59 +52,17 @@
 /*
  *  ======== main ========
  */
-
-volatile int b;
-
 int main(void)
 {
     /* Call driver init functions */
     Board_initGeneral();
+    Task_Params tp;
+    Task_Params_init(&tp);
+    tp.priority = 1;
+    tp.vitalTaskFlag = true;
+    Task_Handle th = Task_create(&mainThread, &tp, NULL);
 
-    GPIO_init();
-    UART_init();
-
-    UART_Params uartParams;
-    UART_Params_init(&uartParams);
-    uartParams.writeDataMode = UART_DATA_BINARY;
-    uartParams.readDataMode = UART_DATA_BINARY;
-    uartParams.readEcho = UART_ECHO_OFF;
-    uartParams.baudRate = 115200;
-
-    /* UART_MODE_BLOCKING does not work when called from main() as
-     * the SYS/BIOS task scheduler has not started and so it cannot
-     * block on a semaphore in UARTCC26XX.c (Line 1135)
-     *
-     * Therefore, we use UART_MODE_CALLBACK.  This returns
-     * immediately (possibly before the UART write is done) and so
-     * is semi-functional.
-     *
-     * Note: The callback function will never be called.
-     *
-     * Note: any function called from main() experiences similar
-     * issues.  To use MODE_BLOCKING, you must start the task
-     * scheduler using BIOS_start() and then call printf from a
-     * task, SWI or HWI context.  See example 2 (hellotask_gcc)
-     */
-    uartParams.writeMode = UART_MODE_CALLBACK;
-
-    uart = UART_open(Board_UART0, &uartParams);
-    if (uart == NULL)
-    {
-        //Open failed
-        while (1)
-            ;
-    }
-
-    UART_printf(uart, "Hello World!\r\n");
-    UART_printf(uart, "Hello Universe!\r\n");
-
-    /*
-     * Need to wait a while for the previous prints to clear as there's no callbacks / blocking.
-     */
-    volatile int b = 1000000;
-    while(b--);
-
-    UART_printf(uart, "4 times 5 is %i\r\n", 20);
+    BIOS_start();
 
     return (0);
 }
